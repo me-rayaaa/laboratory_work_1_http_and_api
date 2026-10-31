@@ -4,3 +4,7 @@ class CoffeeApiError(Exception):
 
 class CoffeeNotFoundError(CoffeeApiError):
     """Ресурс не найден (ожидаемый HTTP 404)."""
+
+
+class CoffeeTimeoutError(CoffeeApiError):
+    """Сервер не ответил за тайм-аут. Для POST результат неизвестен."""
