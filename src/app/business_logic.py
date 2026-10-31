@@ -76,7 +76,6 @@ def delete(client, drink_id):
 
 
 def cleanup(client, drink_id):
-    # сюда попадаем, только если сценарий упал после создания записи
     try:
         client.delete_drink(drink_id)
         print("Удалили за собой напиток id =", drink_id)

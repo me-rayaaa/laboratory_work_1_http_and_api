@@ -97,7 +97,6 @@ class SampleApisCoffeeClient:
         if response.status_code not in OK_CODES:
             raise CoffeeApiError(f"{method} {url}: код ответа {response.status_code}")
 
-        # у DELETE тело нам не нужно, поэтому JSON не проверяем
         if method == "DELETE":
             return response
 
