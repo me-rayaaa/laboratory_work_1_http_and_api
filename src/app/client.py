@@ -24,11 +24,6 @@ id не передаем, его выдает сервер (максимальн
 
 Проверяем только у себя в клиенте:
 - что в теле POST и PUT есть все 4 поля
-
-Как устроен клиент:
-- _request       - отправляет запрос, ловит ошибки сети и тайм-аут, проверяет код ответа
-- _request_json  - вызывает _request и проверяет, что в ответе JSON
-- публичные методы - только собирают путь и вызывают одно из двух
 """
 
 import requests
@@ -37,14 +32,8 @@ from app.exceptions import CoffeeApiError, CoffeeNotFoundError, CoffeeTimeoutErr
 
 JsonObject = dict[str, object]
 
-FIELDS = ["title", "description", "ingredients", "image"]
+FIELDS = ("title", "description", "ingredients", "image")
 OK_CODES = (200, 201)
-
-
-def check_payload(payload: JsonObject) -> None:
-    for field in FIELDS:
-        if field not in payload:
-            raise ValueError(f"в напитке нет поля {field}")
 
 
 class SampleApisCoffeeClient:
@@ -56,38 +45,38 @@ class SampleApisCoffeeClient:
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
 
-    # --- публичные методы ---
-
     def list_drinks(self) -> list[JsonObject]:
-        return self._request_json("GET")
+        return self._request("GET").json()
 
     def get_drink(self, drink_id: int) -> JsonObject:
-        return self._request_json("GET", f"/{drink_id}")
+        return self._request("GET", f"/{drink_id}").json()
 
     def create_drink(self, payload: JsonObject) -> JsonObject:
-        check_payload(payload)
-        return self._request_json("POST", "", payload)
+        self._check_payload(payload)
+        return self._request("POST", "", payload).json()
 
     def replace_drink(
         self,
         drink_id: int,
         payload: JsonObject,
     ) -> JsonObject:
-        check_payload(payload)
-        return self._request_json("PUT", f"/{drink_id}", payload)
+        self._check_payload(payload)
+        return self._request("PUT", f"/{drink_id}", payload).json()
 
     def update_drink(
         self,
         drink_id: int,
         changes: JsonObject,
     ) -> JsonObject:
-        return self._request_json("PATCH", f"/{drink_id}", changes)
+        return self._request("PATCH", f"/{drink_id}", changes).json()
 
     def delete_drink(self, drink_id: int) -> None:
-        # тело ответа не читаем, оно нам не нужно
         self._request("DELETE", f"/{drink_id}")
 
-    # --- общая HTTP-логика ---
+    def _check_payload(self, payload: JsonObject) -> None:
+        for field in FIELDS:
+            if field not in payload:
+                raise ValueError(f"в напитке нет поля {field}")
 
     def _request(
         self,
@@ -107,18 +96,15 @@ class SampleApisCoffeeClient:
             raise CoffeeNotFoundError(f"{method} {url}: не найдено")
         if response.status_code not in OK_CODES:
             raise CoffeeApiError(f"{method} {url}: код ответа {response.status_code}")
-        return response
 
-    def _request_json(
-        self,
-        method: str,
-        path: str = "",
-        payload: JsonObject | None = None,
-    ):
-        response = self._request(method, path, payload)
+        # у DELETE тело нам не нужно, поэтому JSON не проверяем
+        if method == "DELETE":
+            return response
+
         if "application/json" not in response.headers.get("Content-Type", ""):
-            raise CoffeeApiError(f"{method} {path or '/'}: сервер вернул не JSON")
+            raise CoffeeApiError(f"{method} {url}: сервер вернул не JSON")
         try:
-            return response.json()
+            response.json()
         except ValueError:
-            raise CoffeeApiError(f"{method} {path or '/'}: сервер вернул битый JSON")
+            raise CoffeeApiError(f"{method} {url}: сервер вернул битый JSON")
+        return response
